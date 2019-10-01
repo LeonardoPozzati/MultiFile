@@ -1,0 +1,44 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*- 
+
+from sys import stderr, stdout
+from os import fdopen
+
+stdout = fdopen(stdout.fileno(), 'w', 0)
+stderr = fdopen(stderr.fileno(), 'w', 0)
+
+class MultiFile(object):
+  """This is an extension of pythonic file iterable:
+     it takes as input an arbitrary number of filepaths, 
+     opens the files with reading permission
+     and then carries on a parallel iteration (line by line) over them. 
+     The output is a list of all the lines read.
+     Is a file finishes before the others, a warning is printed.
+  """
+  def __init__(self, mode, *files):
+    self.filenames = list(files)
+    self.files = []
+    self.IOErrStrings = []
+    for filePath in self.filenames:
+      try:
+        self.files.append(open(filePath, mode))
+      except IOError as e:
+        IOerror = "I/O error({0}): {1} : '{2}'"
+        self.IOErrStrings.append(IOerror.format(e.errno,
+                                                e.strerror,
+                                                filePath))
+    if self.IOErrStrings:
+      stderr.write('\n'.join(self.IOErrStrings) + '\n')
+      raise IOError
+
+  def __iter__(self):
+    while True:
+      lines = [ next(f,'') for f in self.files ]
+      if all(lines):
+        yield lines
+      else:
+        overFiles = [filename for filename, line 
+                     in zip(self.filenames, lines) if line == '']
+        if len(overFiles) != len(self.filenames):
+          stderr.write("over: {0}\n".format(', '.join(overFiles)))
+        break
